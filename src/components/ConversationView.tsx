@@ -9,14 +9,26 @@ interface ConversationViewProps {
 function Bubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <p
-        className={`max-w-[65ch] whitespace-pre-wrap font-serif text-[1.05rem] leading-relaxed ${
-          isUser ? "text-ink-dim" : "text-ink"
-        }`}
-      >
-        {message.content}
-      </p>
+    <div className={`flex flex-col gap-2 ${isUser ? "items-end" : "items-start"}`}>
+      {message.content && (
+        <p
+          className={`max-w-[65ch] whitespace-pre-wrap font-serif text-[1.05rem] leading-relaxed ${
+            isUser ? "text-ink-dim" : "text-ink"
+          }`}
+        >
+          {message.content}
+        </p>
+      )}
+      {message.link && (
+        <a
+          href={message.link.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="min-h-11 inline-flex items-center rounded-full border border-ocher-dim bg-ocher/10 px-4 text-sm font-sans text-ocher-bright hover:bg-ocher/20"
+        >
+          ▸ {message.link.label}
+        </a>
+      )}
     </div>
   );
 }

@@ -1,10 +1,16 @@
 export type Role = "user" | "assistant";
 
+export interface LinkSuggestion {
+  url: string;
+  label: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: Role;
   content: string;
   createdAt: number;
+  link?: LinkSuggestion;
 }
 
 export interface TaskItem {

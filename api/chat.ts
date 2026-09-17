@@ -76,7 +76,25 @@ export default async function handler(request: Request): Promise<Response> {
         system: parsed.system,
         messages: parsed.messages,
         stream: true,
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        tools: [
+          { type: "web_search_20250305", name: "web_search" },
+          {
+            name: "open_link",
+            description:
+              "Schlägt dem Nutzer einen Link vor, den er selbst antippen kann, z. B. um Musik auf Apple Music zu suchen und abzuspielen (https://music.apple.com/search?term=...) oder eine Website zu öffnen. Der Link wird als Knopf angezeigt, nicht automatisch geöffnet – schreib trotzdem immer einen kurzen gesprochenen Satz dazu, da du kein Ergebnis dieser Aktion zurückbekommst.",
+            input_schema: {
+              type: "object",
+              properties: {
+                url: { type: "string", description: "Vollständige https-URL." },
+                label: {
+                  type: "string",
+                  description: "Kurzer Knopftext, z. B. 'Auf Apple Music öffnen'.",
+                },
+              },
+              required: ["url", "label"],
+            },
+          },
+        ],
       }),
     });
   } catch (error) {

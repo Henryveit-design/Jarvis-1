@@ -131,6 +131,7 @@ export default function App() {
     setIsStreaming(true);
 
     let finalContent = "";
+    let link: ChatMessage["link"];
     streamChat(apiMessages, system, {
       onDelta: (delta) => {
         finalContent += delta;
@@ -140,11 +141,20 @@ export default function App() {
           )
         );
       },
+      onToolUse: (suggestion) => {
+        if (link) return;
+        link = suggestion;
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === assistantId ? { ...message, link: suggestion } : message
+          )
+        );
+      },
       onDone: () => {
         setIsStreaming(false);
-        if (finalContent.trim()) {
-          saveMessage({ ...assistantMessage, content: finalContent }).catch(() => undefined);
-          afterReply(finalContent);
+        if (finalContent.trim() || link) {
+          saveMessage({ ...assistantMessage, content: finalContent, link }).catch(() => undefined);
+          if (finalContent.trim()) afterReply(finalContent);
         } else {
           setMessages((prev) => prev.filter((message) => message.id !== assistantId));
         }
@@ -153,12 +163,12 @@ export default function App() {
         setIsStreaming(false);
         setStreamError(message);
         setMessages((prev) =>
-          finalContent.trim()
+          finalContent.trim() || link
             ? prev
             : prev.filter((entry) => entry.id !== assistantId)
         );
-        if (finalContent.trim()) {
-          saveMessage({ ...assistantMessage, content: finalContent }).catch(() => undefined);
+        if (finalContent.trim() || link) {
+          saveMessage({ ...assistantMessage, content: finalContent, link }).catch(() => undefined);
         }
       },
     });

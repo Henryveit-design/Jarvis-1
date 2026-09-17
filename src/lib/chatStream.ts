@@ -1,24 +1,53 @@
-interface ContentBlockDeltaEvent {
-  type: "content_block_delta";
-  delta: { type: string; text?: string };
+interface ContentBlockStartEvent {
+  type: "content_block_start";
+  index: number;
+  content_block: { type: string; id?: string; name?: string };
 }
 
-interface MessageStopEvent {
-  type: "message_stop";
+interface ContentBlockDeltaEvent {
+  type: "content_block_delta";
+  index: number;
+  delta: { type: string; text?: string; partial_json?: string };
+}
+
+interface ContentBlockStopEvent {
+  type: "content_block_stop";
+  index: number;
 }
 
 interface UnknownStreamEvent {
   type: string;
 }
 
-type StreamEvent = ContentBlockDeltaEvent | MessageStopEvent | UnknownStreamEvent;
+type StreamEvent =
+  | ContentBlockStartEvent
+  | ContentBlockDeltaEvent
+  | ContentBlockStopEvent
+  | UnknownStreamEvent;
+
+function isContentBlockStart(event: StreamEvent): event is ContentBlockStartEvent {
+  return event.type === "content_block_start";
+}
 
 function isContentBlockDelta(event: StreamEvent): event is ContentBlockDeltaEvent {
   return event.type === "content_block_delta";
 }
 
+function isContentBlockStop(event: StreamEvent): event is ContentBlockStopEvent {
+  return event.type === "content_block_stop";
+}
+
+import type { LinkSuggestion } from "./types";
+
+function isLinkSuggestion(value: unknown): value is LinkSuggestion {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.url === "string" && typeof record.label === "string";
+}
+
 export interface ChatStreamCallbacks {
   onDelta: (text: string) => void;
+  onToolUse: (link: LinkSuggestion) => void;
   onDone: () => void;
   onError: (message: string) => void;
 }
@@ -26,6 +55,12 @@ export interface ChatStreamCallbacks {
 export interface ChatStreamMessage {
   role: "user" | "assistant";
   content: string;
+}
+
+interface OpenToolUseBlock {
+  kind: "tool_use";
+  name: string;
+  json: string;
 }
 
 export async function streamChat(
@@ -66,6 +101,7 @@ export async function streamChat(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  const openToolBlocks = new Map<number, OpenToolUseBlock>();
 
   try {
     for (;;) {
@@ -91,8 +127,36 @@ export async function streamChat(
           continue;
         }
 
-        if (isContentBlockDelta(event) && event.delta.type === "text_delta") {
-          callbacks.onDelta(event.delta.text ?? "");
+        if (isContentBlockStart(event) && event.content_block.type === "tool_use") {
+          openToolBlocks.set(event.index, {
+            kind: "tool_use",
+            name: event.content_block.name ?? "",
+            json: "",
+          });
+          continue;
+        }
+
+        if (isContentBlockDelta(event)) {
+          if (event.delta.type === "text_delta") {
+            callbacks.onDelta(event.delta.text ?? "");
+          } else if (event.delta.type === "input_json_delta") {
+            const open = openToolBlocks.get(event.index);
+            if (open) open.json += event.delta.partial_json ?? "";
+          }
+          continue;
+        }
+
+        if (isContentBlockStop(event)) {
+          const open = openToolBlocks.get(event.index);
+          if (open && open.name === "open_link") {
+            try {
+              const input: unknown = JSON.parse(open.json);
+              if (isLinkSuggestion(input)) callbacks.onToolUse(input);
+            } catch {
+              // unvollständiges oder ungültiges JSON vom Modell, ignorieren
+            }
+          }
+          openToolBlocks.delete(event.index);
         }
       }
     }

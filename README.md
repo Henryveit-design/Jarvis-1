@@ -42,3 +42,10 @@ funktioniert wie auf Vercel.
 - PWA: `manifest.webmanifest`, Icons (180/192/512 px), Service Worker für die
   App-Shell (API-Aufrufe werden nie gecacht), `viewport-fit=cover` mit
   `env(safe-area-inset-*)`.
+- Websuche: das Anthropic-Tool `web_search` ist aktiviert, Jarvis kann also
+  aktuelle Informationen nachschlagen.
+- Musik/Links: Jarvis kann über das Tool `open_link` einen antippbaren
+  Link-Knopf vorschlagen (z. B. eine Apple-Music-Suche). Als Web-App kann er
+  keine anderen Apps fernsteuern oder Musik unsichtbar im Hintergrund starten
+  – der Nutzer tippt den Knopf selbst an, dann übernimmt iOS die Weiterleitung
+  in die passende App.
