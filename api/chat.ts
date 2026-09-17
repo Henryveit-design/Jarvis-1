@@ -1,4 +1,4 @@
-import { ANTHROPIC_URL, MAX_TOKENS, MODEL, TOOLS, errorResponse, getApiKey } from "./_shared.ts";
+import { MAX_OUTPUT_TOKENS, TOOLS, buildGeminiUrl, errorResponse, getApiKey } from "./_shared.ts";
 
 export const config = { runtime: "edge" };
 
@@ -30,6 +30,13 @@ function parseBody(value: unknown): ChatRequestBody | null {
   return { messages: record.messages, system: record.system };
 }
 
+function toGeminiContents(messages: ChatMessage[]): unknown[] {
+  return messages.map((message) => ({
+    role: message.role === "assistant" ? "model" : "user",
+    parts: [{ text: message.content }],
+  }));
+}
+
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== "POST") {
     return errorResponse(405, "Nur POST wird unterstützt.");
@@ -37,7 +44,7 @@ export default async function handler(request: Request): Promise<Response> {
 
   const apiKey = getApiKey();
   if (!apiKey) {
-    return errorResponse(500, "ANTHROPIC_API_KEY ist auf dem Server nicht gesetzt.");
+    return errorResponse(500, "GEMINI_API_KEY ist auf dem Server nicht gesetzt.");
   }
 
   let parsed: ChatRequestBody | null;
@@ -54,30 +61,24 @@ export default async function handler(request: Request): Promise<Response> {
 
   let upstream: Response;
   try {
-    upstream = await fetch(ANTHROPIC_URL, {
+    upstream = await fetch(buildGeminiUrl("streamGenerateContent", apiKey), {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: parsed.system,
-        messages: parsed.messages,
-        stream: true,
+        systemInstruction: { parts: [{ text: parsed.system }] },
+        contents: toGeminiContents(parsed.messages),
         tools: TOOLS,
+        generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS },
       }),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unbekannter Netzwerkfehler.";
-    return errorResponse(502, `Anthropic-API nicht erreichbar: ${message}`);
+    return errorResponse(502, `Gemini-API nicht erreichbar: ${message}`);
   }
 
   if (!upstream.ok || !upstream.body) {
     const text = await upstream.text();
-    return errorResponse(upstream.status, `Anthropic-API-Fehler: ${text}`);
+    return errorResponse(upstream.status, `Gemini-API-Fehler: ${text}`);
   }
 
   return new Response(upstream.body, {

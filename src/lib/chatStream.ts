@@ -1,43 +1,13 @@
-interface ContentBlockStartEvent {
-  type: "content_block_start";
-  index: number;
-  content_block: { type: string; id?: string; name?: string };
-}
-
-interface ContentBlockDeltaEvent {
-  type: "content_block_delta";
-  index: number;
-  delta: { type: string; text?: string; partial_json?: string };
-}
-
-interface ContentBlockStopEvent {
-  type: "content_block_stop";
-  index: number;
-}
-
-interface UnknownStreamEvent {
-  type: string;
-}
-
-type StreamEvent =
-  | ContentBlockStartEvent
-  | ContentBlockDeltaEvent
-  | ContentBlockStopEvent
-  | UnknownStreamEvent;
-
-function isContentBlockStart(event: StreamEvent): event is ContentBlockStartEvent {
-  return event.type === "content_block_start";
-}
-
-function isContentBlockDelta(event: StreamEvent): event is ContentBlockDeltaEvent {
-  return event.type === "content_block_delta";
-}
-
-function isContentBlockStop(event: StreamEvent): event is ContentBlockStopEvent {
-  return event.type === "content_block_stop";
-}
-
 import type { LinkSuggestion } from "./types";
+
+interface GeminiPart {
+  text?: string;
+  functionCall?: { name: string; args: unknown };
+}
+
+interface GeminiStreamChunk {
+  candidates?: Array<{ content?: { parts?: GeminiPart[] } }>;
+}
 
 function isLinkSuggestion(value: unknown): value is LinkSuggestion {
   if (typeof value !== "object" || value === null) return false;
@@ -55,12 +25,6 @@ export interface ChatStreamCallbacks {
 export interface ChatStreamMessage {
   role: "user" | "assistant";
   content: string;
-}
-
-interface OpenToolUseBlock {
-  kind: "tool_use";
-  name: string;
-  json: string;
 }
 
 export async function streamChat(
@@ -101,7 +65,6 @@ export async function streamChat(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  const openToolBlocks = new Map<number, OpenToolUseBlock>();
 
   try {
     for (;;) {
@@ -120,43 +83,22 @@ export async function streamChat(
         const jsonText = dataLine.slice("data:".length).trim();
         if (!jsonText) continue;
 
-        let event: StreamEvent;
+        let chunk: GeminiStreamChunk;
         try {
-          event = JSON.parse(jsonText) as StreamEvent;
+          chunk = JSON.parse(jsonText) as GeminiStreamChunk;
         } catch {
           continue;
         }
 
-        if (isContentBlockStart(event) && event.content_block.type === "tool_use") {
-          openToolBlocks.set(event.index, {
-            kind: "tool_use",
-            name: event.content_block.name ?? "",
-            json: "",
-          });
-          continue;
-        }
-
-        if (isContentBlockDelta(event)) {
-          if (event.delta.type === "text_delta") {
-            callbacks.onDelta(event.delta.text ?? "");
-          } else if (event.delta.type === "input_json_delta") {
-            const open = openToolBlocks.get(event.index);
-            if (open) open.json += event.delta.partial_json ?? "";
-          }
-          continue;
-        }
-
-        if (isContentBlockStop(event)) {
-          const open = openToolBlocks.get(event.index);
-          if (open && open.name === "open_link") {
-            try {
-              const input: unknown = JSON.parse(open.json);
-              if (isLinkSuggestion(input)) callbacks.onToolUse(input);
-            } catch {
-              // unvollständiges oder ungültiges JSON vom Modell, ignorieren
+        const parts = chunk.candidates?.[0]?.content?.parts ?? [];
+        for (const part of parts) {
+          if (typeof part.text === "string") {
+            callbacks.onDelta(part.text);
+          } else if (part.functionCall?.name === "open_link") {
+            if (isLinkSuggestion(part.functionCall.args)) {
+              callbacks.onToolUse(part.functionCall.args);
             }
           }
-          openToolBlocks.delete(event.index);
         }
       }
     }

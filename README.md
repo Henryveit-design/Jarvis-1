@@ -1,15 +1,19 @@
 # Jarvis
 
 Persönlicher Sprachassistent als installierbare PWA (Vite + React + TypeScript),
-mit einer Vercel-Serverless-Function (`/api/chat`), die deinen Anthropic-API-Key
-serverseitig verwendet und die Antwort per SSE an die App streamt.
+mit einer Vercel-Serverless-Function (`/api/chat`), die einen kostenlosen
+Google-Gemini-API-Key serverseitig verwendet und die Antwort per SSE an die
+App streamt.
 
 ## Inbetriebnahme
 
-1. **Key setzen**: In den Vercel-Projekteinstellungen unter *Settings → Environment
-   Variables* eine Variable `ANTHROPIC_API_KEY` mit deinem Anthropic-API-Key anlegen.
-   (Für lokales Testen alternativ eine Datei `.env` mit `ANTHROPIC_API_KEY=sk-ant-...`
-   im Projektstamm anlegen – sie wird nicht eingecheckt und landet nie im Client-Bundle.)
+1. **Key setzen**: Auf [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+   kostenlos (kein Zahlungsmittel nötig) einen Gemini-API-Key erstellen. Dann in
+   den Vercel-Projekteinstellungen unter *Settings → Environment Variables* eine
+   Variable `GEMINI_API_KEY` mit diesem Key anlegen.
+   (Für lokales Testen alternativ eine Datei `.env` mit `GEMINI_API_KEY=...`
+   im Projektstamm anlegen – sie wird nicht eingecheckt und landet nie im
+   Client-Bundle.)
 2. **Deployen**: Repository auf [vercel.com](https://vercel.com) importieren (oder
    `vercel --prod` mit der Vercel CLI ausführen). Vercel erkennt Vite automatisch
    und deployt `/api/chat` als Edge Function.
@@ -42,8 +46,6 @@ funktioniert wie auf Vercel.
 - PWA: `manifest.webmanifest`, Icons (180/192/512 px), Service Worker für die
   App-Shell (API-Aufrufe werden nie gecacht), `viewport-fit=cover` mit
   `env(safe-area-inset-*)`.
-- Websuche: das Anthropic-Tool `web_search` ist aktiviert, Jarvis kann also
-  aktuelle Informationen nachschlagen.
 - Musik/Links: Jarvis kann über das Tool `open_link` einen antippbaren
   Link-Knopf vorschlagen (z. B. eine Apple-Music-Suche). Als Web-App kann er
   keine anderen Apps fernsteuern oder Musik unsichtbar im Hintergrund starten
@@ -53,3 +55,14 @@ funktioniert wie auf Vercel.
   Variante von `/api/chat` (POST `{ text }` → `{ reply, link? }`), gedacht für
   Kurzbefehle. Bau-Anleitung für den "Hey Siri, frag Jarvis"-Kurzbefehl in
   [SHORTCUTS.md](./SHORTCUTS.md).
+
+## Modell / Kosten
+
+Backend nutzt Googles Gemini-API (`gemini-2.5-flash` per Default, per
+`GEMINI_MODEL`-Env-Var überschreibbar) über deren kostenloses Kontingent –
+kein Zahlungsmittel nötig, aber ein Tageslimit an Anfragen. Für den
+persönlichen Gebrauch (ein paar Nachrichten am Tag) reicht das üblicherweise
+locker. Falls Google den Modellnamen einmal ändert und `/api/chat` mit einem
+"model not found"-Fehler antwortet: aktuellen Namen auf
+[aistudio.google.com](https://aistudio.google.com) nachsehen und als
+`GEMINI_MODEL` in Vercel setzen.

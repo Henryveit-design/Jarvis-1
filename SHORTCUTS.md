@@ -77,9 +77,9 @@ einer da ist.
 
 - Kein Zugriff auf Verlauf/Aufgaben/Notizen der App (siehe oben).
 - `/api/ask` ist aktuell **nicht** durch ein Passwort geschützt – wer deine
-  Vercel-URL kennt, könnte sie ebenfalls aufrufen und Anthropic-Kosten
-  verursachen. Sag Bescheid, falls ein einfacher Zugriffs-Token ergänzt
-  werden soll.
+  Vercel-URL kennt, könnte sie ebenfalls aufrufen und dein tägliches
+  Gemini-Kontingent verbrauchen. Sag Bescheid, falls ein einfacher
+  Zugriffs-Token ergänzt werden soll.
 - Musik/Websites öffnen sich nach Bestätigung durch den Kurzbefehl selbst
   (Schritt 9), nicht unsichtbar im Hintergrund – iOS erlaubt das aus
   Sicherheitsgründen keiner App.
