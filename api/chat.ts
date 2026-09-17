@@ -1,8 +1,6 @@
-export const config = { runtime: "edge" };
+import { ANTHROPIC_URL, MAX_TOKENS, MODEL, TOOLS, errorResponse, getApiKey } from "./_shared.ts";
 
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-5";
-const MAX_TOKENS = 1024;
+export const config = { runtime: "edge" };
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -32,19 +30,12 @@ function parseBody(value: unknown): ChatRequestBody | null {
   return { messages: record.messages, system: record.system };
 }
 
-function errorResponse(status: number, message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
-
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== "POST") {
     return errorResponse(405, "Nur POST wird unterstützt.");
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = getApiKey();
   if (!apiKey) {
     return errorResponse(500, "ANTHROPIC_API_KEY ist auf dem Server nicht gesetzt.");
   }
@@ -76,25 +67,7 @@ export default async function handler(request: Request): Promise<Response> {
         system: parsed.system,
         messages: parsed.messages,
         stream: true,
-        tools: [
-          { type: "web_search_20250305", name: "web_search" },
-          {
-            name: "open_link",
-            description:
-              "Schlägt dem Nutzer einen Link vor, den er selbst antippen kann, z. B. um Musik auf Apple Music zu suchen und abzuspielen (https://music.apple.com/search?term=...) oder eine Website zu öffnen. Der Link wird als Knopf angezeigt, nicht automatisch geöffnet – schreib trotzdem immer einen kurzen gesprochenen Satz dazu, da du kein Ergebnis dieser Aktion zurückbekommst.",
-            input_schema: {
-              type: "object",
-              properties: {
-                url: { type: "string", description: "Vollständige https-URL." },
-                label: {
-                  type: "string",
-                  description: "Kurzer Knopftext, z. B. 'Auf Apple Music öffnen'.",
-                },
-              },
-              required: ["url", "label"],
-            },
-          },
-        ],
+        tools: TOOLS,
       }),
     });
   } catch (error) {

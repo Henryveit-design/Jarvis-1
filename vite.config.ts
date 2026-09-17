@@ -2,12 +2,15 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import chatHandler from "./api/chat.ts";
+import askHandler from "./api/ask.ts";
 
-function apiDevMiddleware(): Plugin {
+type EdgeHandler = (request: Request) => Promise<Response>;
+
+function edgeDevMiddleware(path: string, handler: EdgeHandler): Plugin {
   return {
-    name: "api-chat-dev-middleware",
+    name: `api-dev-middleware${path.replace(/\//g, "-")}`,
     configureServer(server) {
-      server.middlewares.use("/api/chat", async (req, res) => {
+      server.middlewares.use(path, async (req, res) => {
         try {
           const chunks: Buffer[] = [];
           for await (const chunk of req) chunks.push(chunk as Buffer);
@@ -18,13 +21,13 @@ function apiDevMiddleware(): Plugin {
             if (typeof value === "string") headers.set(key, value);
           }
 
-          const request = new Request(`http://localhost${req.url ?? "/api/chat"}`, {
+          const request = new Request(`http://localhost${req.url ?? path}`, {
             method: req.method,
             headers,
             body: body.length > 0 ? body : undefined,
           });
 
-          const response = await chatHandler(request);
+          const response = await handler(request);
           res.statusCode = response.status;
           response.headers.forEach((value, key) => res.setHeader(key, value));
 
@@ -53,6 +56,11 @@ export default defineConfig(({ mode }) => {
   if (env.ANTHROPIC_API_KEY) process.env.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY;
 
   return {
-    plugins: [react(), tailwindcss(), apiDevMiddleware()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      edgeDevMiddleware("/api/chat", chatHandler),
+      edgeDevMiddleware("/api/ask", askHandler),
+    ],
   };
 });

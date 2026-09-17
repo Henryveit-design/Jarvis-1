@@ -49,3 +49,7 @@ funktioniert wie auf Vercel.
   keine anderen Apps fernsteuern oder Musik unsichtbar im Hintergrund starten
   – der Nutzer tippt den Knopf selbst an, dann übernimmt iOS die Weiterleitung
   in die passende App.
+- Siri/Apple Shortcuts: `/api/ask` ist eine schlanke, nicht-streamende
+  Variante von `/api/chat` (POST `{ text }` → `{ reply, link? }`), gedacht für
+  Kurzbefehle. Bau-Anleitung für den "Hey Siri, frag Jarvis"-Kurzbefehl in
+  [SHORTCUTS.md](./SHORTCUTS.md).
